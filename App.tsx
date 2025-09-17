@@ -7,6 +7,9 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AlpasoApiService from './services/AlpasoApiService';
+import LoginScreen from './components/LoginScreen';
+import RegisterScreen from './components/RegisterScreen';
+import UserProfileScreen from './components/UserProfileScreen';
 
 // Screens Components
 function HomeScreen() {
@@ -246,61 +249,88 @@ function CatalogScreen() {
 function ProfileScreen() {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authScreen, setAuthScreen] = useState<'login' | 'register'>('login');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     checkAuthStatus();
   }, []);
 
   const checkAuthStatus = async () => {
-    const authenticated = AlpasoApiService.isAuthenticated();
-    setIsAuthenticated(authenticated);
+    try {
+      const authenticated = AlpasoApiService.isAuthenticated();
+      setIsAuthenticated(authenticated);
 
-    if (authenticated) {
-      try {
+      if (authenticated) {
         const userData = await AlpasoApiService.getUserProfile();
         setUser(userData);
-      } catch (error) {
-        console.error('Error loading user profile:', error);
       }
+    } catch (error) {
+      console.error('Error checking auth status:', error);
+      setIsAuthenticated(false);
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    await AlpasoApiService.logout();
-    setIsAuthenticated(false);
-    setUser(null);
+  const handleLoginSuccess = (userData: any) => {
+    setUser(userData);
+    setIsAuthenticated(true);
   };
 
-  if (isAuthenticated && user) {
+  const handleRegisterSuccess = (userData: any) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setIsAuthenticated(false);
+    setAuthScreen('login');
+  };
+
+  const handleUserUpdate = (updatedUser: any) => {
+    setUser(updatedUser);
+  };
+
+  if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.profileContent}>
-          <Ionicons name="person-circle" size={64} color="#8B4513" />
-          <Text style={styles.sectionTitle}>Hola, {user.name || user.email}</Text>
-          <Text style={styles.sectionDescription}>
-            Rol: {user.role || 'Usuario'}
-          </Text>
-
-          <TouchableOpacity style={styles.actionButton} onPress={handleLogout}>
-            <Text style={styles.actionButtonText}>Cerrar Sesión</Text>
-          </TouchableOpacity>
+        <View style={styles.centerContent}>
+          <Text>Cargando...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
+  // If user is authenticated, show profile screen
+  if (isAuthenticated && user) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <UserProfileScreen
+          user={user}
+          onLogout={handleLogout}
+          onUserUpdate={handleUserUpdate}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // If not authenticated, show login or register screen
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.centerContent}>
-        <Ionicons name="person-circle-outline" size={64} color="#8B4513" />
-        <Text style={styles.sectionTitle}>Mi Perfil</Text>
-        <Text style={styles.sectionDescription}>
-          Inicia sesión para acceder a tu cuenta
-        </Text>
-        <TouchableOpacity style={styles.actionButton}>
-          <Text style={styles.actionButtonText}>Iniciar Sesión</Text>
-        </TouchableOpacity>
-      </View>
+      {authScreen === 'login' ? (
+        <LoginScreen
+          onLoginSuccess={handleLoginSuccess}
+          onSwitchToRegister={() => setAuthScreen('register')}
+        />
+      ) : (
+        <RegisterScreen
+          onRegisterSuccess={handleRegisterSuccess}
+          onSwitchToLogin={() => setAuthScreen('login')}
+        />
+      )}
     </SafeAreaView>
   );
 }

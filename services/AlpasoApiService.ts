@@ -1,7 +1,8 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = 'http://localhost:5003'; // Tu backend de Alpaso
+// Configuración para conectar desde móvil a tu computadora
+const API_BASE_URL = 'http://192.168.1.33:5003'; // Tu IP local + puerto del backend
 
 class AlpasoApiService {
   private token: string | null = null;
@@ -96,37 +97,82 @@ class AlpasoApiService {
     }
   }
 
-  // Auth API
+  // Auth API con manejo mejorado de errores
   async login(email: string, password: string) {
     try {
+      console.log('🔐 Intentando login con:', { email, API_BASE_URL });
+
       const response = await axios.post(`${API_BASE_URL}/api/auth/login`, {
         email,
         password,
+      }, {
+        timeout: 10000, // 10 segundos de timeout
+        headers: {
+          'Content-Type': 'application/json',
+        }
       });
 
-      if (response.data.token) {
-        await this.saveToken(response.data.token);
-      }
+      console.log('✅ Respuesta del login:', response.data);
 
-      return response.data;
-    } catch (error) {
-      console.error('Error during login:', error);
-      throw error;
+      // El backend devuelve { message: "Login successful", token, user }
+      if (response.data.message === 'Login successful' && response.data.token) {
+        await this.saveToken(response.data.token);
+        return {
+          success: true,
+          token: response.data.token,
+          user: response.data.user,
+          message: response.data.message
+        };
+      } else {
+        return { success: false, message: response.data.message || 'Credenciales incorrectas' };
+      }
+    } catch (error: any) {
+      console.error('❌ Error during login:', error);
+
+      // Manejo específico de errores de red
+      if (error.code === 'ECONNREFUSED' || error.message === 'Network Error') {
+        throw new Error('No se puede conectar al servidor. Verifica tu conexión.');
+      } else if (error.response?.status === 401) {
+        throw new Error('Credenciales incorrectas');
+      } else if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else {
+        throw new Error('Error al iniciar sesión. Intenta de nuevo.');
+      }
     }
   }
 
   async register(userData: any) {
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/auth/register`, userData);
+      console.log('📝 Intentando registro con:', { email: userData.email, API_BASE_URL });
+
+      const response = await axios.post(`${API_BASE_URL}/api/auth/register`, userData, {
+        timeout: 10000,
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      console.log('✅ Respuesta del registro:', response.data);
 
       if (response.data.token) {
         await this.saveToken(response.data.token);
+        return { success: true, ...response.data };
+      } else if (response.data.success) {
+        return { success: true, ...response.data };
+      } else {
+        return { success: false, message: response.data.message || 'Error al crear la cuenta' };
       }
+    } catch (error: any) {
+      console.error('❌ Error during registration:', error);
 
-      return response.data;
-    } catch (error) {
-      console.error('Error during registration:', error);
-      throw error;
+      if (error.code === 'ECONNREFUSED' || error.message === 'Network Error') {
+        throw new Error('No se puede conectar al servidor. Verifica tu conexión.');
+      } else if (error.response?.data?.message) {
+        throw new Error(error.response.data.message);
+      } else {
+        throw new Error('Error al crear la cuenta. Intenta de nuevo.');
+      }
     }
   }
 
