@@ -12,18 +12,20 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AlpasoApiService from '../services/AlpasoApiService';
+import { useAuth } from '../App'; // Import useAuth properly
 
 interface LoginScreenProps {
-  onLoginSuccess: (user: any) => void;
-  onSwitchToRegister: () => void;
+  onSwitchToRegister?: () => void;
 }
 
-export default function LoginScreen({ onLoginSuccess, onSwitchToRegister }: LoginScreenProps) {
+export default function LoginScreen({ onSwitchToRegister }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Use the properly imported useAuth hook
+  const { login } = useAuth();
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -38,44 +40,23 @@ export default function LoginScreen({ onLoginSuccess, onSwitchToRegister }: Logi
 
     setLoading(true);
     try {
-      const response = await AlpasoApiService.login(email.trim(), password);
+      console.log('🔑 Iniciando proceso de login...');
 
-      if (response.success) {
-        // El backend ya devuelve los datos del usuario en la respuesta de login
-        onLoginSuccess(response.user);
-        Alert.alert('Éxito', '¡Bienvenido a Alpaso!');
+      // Use the login function from the context
+      const success = await login(email.trim(), password);
+
+      if (success) {
+        console.log('✅ Login exitoso');
+        // Navigation will be handled automatically by AuthNavigator
       } else {
-        Alert.alert('Error', response.message || 'Credenciales incorrectas');
+        Alert.alert('Error', 'Credenciales incorrectas');
       }
-    } catch (error: any) {
-      console.error('Login error:', error);
-      Alert.alert(
-        'Error',
-        error.message || 'Error al iniciar sesión. Verifica tu conexión.'
-      );
+    } catch (error) {
+      console.error('❌ Login falló:', error);
+      Alert.alert('Error', error.message || 'Error al iniciar sesión');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleForgotPassword = () => {
-    Alert.alert(
-      'Recuperar Contraseña',
-      'Se enviará un enlace de recuperación a tu email',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Enviar',
-          onPress: () => {
-            if (email.trim() && email.includes('@')) {
-              Alert.alert('Enviado', 'Revisa tu email para restablecer tu contraseña');
-            } else {
-              Alert.alert('Error', 'Ingresa tu email primero');
-            }
-          }
-        }
-      ]
-    );
   };
 
   return (
@@ -83,66 +64,58 @@ export default function LoginScreen({ onLoginSuccess, onSwitchToRegister }: Logi
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
         <View style={styles.header}>
-          <Ionicons name="cafe" size={60} color="#8B4513" />
+          <View style={styles.logoContainer}>
+            <Ionicons name="cafe" size={60} color="#8B4513" />
+          </View>
           <Text style={styles.title}>Bienvenido a Alpaso</Text>
-          <Text style={styles.subtitle}>Inicia sesión en tu cuenta</Text>
+          <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
         </View>
 
-        {/* Login Form */}
         <View style={styles.form}>
-          {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#8B4513" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
-          </View>
-
-          {/* Password Input */}
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color="#8B4513" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Contraseña"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
-            <TouchableOpacity
-              style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <Ionicons
-                name={showPassword ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color="#8B4513"
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Email</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="mail" size={20} color="#8B4513" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="tu@email.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
               />
-            </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Forgot Password */}
-          <TouchableOpacity
-            style={styles.forgotPassword}
-            onPress={handleForgotPassword}
-            disabled={loading}
-          >
-            <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
-          </TouchableOpacity>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Contraseña</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="lock-closed" size={20} color="#8B4513" style={styles.inputIcon} />
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Tu contraseña"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={20}
+                  color="#8B4513"
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-          {/* Login Button */}
           <TouchableOpacity
             style={[styles.loginButton, loading && styles.loginButtonDisabled]}
             onPress={handleLogin}
@@ -151,49 +124,22 @@ export default function LoginScreen({ onLoginSuccess, onSwitchToRegister }: Logi
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+              <>
+                <Ionicons name="log-in" size={20} color="white" />
+                <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+              </>
             )}
           </TouchableOpacity>
 
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>o</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Register Link */}
-          <TouchableOpacity
-            style={styles.registerLink}
-            onPress={onSwitchToRegister}
-            disabled={loading}
-          >
-            <Text style={styles.registerText}>
-              ¿No tienes cuenta? <Text style={styles.registerTextBold}>Regístrate</Text>
-            </Text>
+          <TouchableOpacity style={styles.forgotPassword}>
+            <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Demo Credentials */}
-        <View style={styles.demoSection}>
-          <Text style={styles.demoTitle}>Credenciales de prueba:</Text>
-          <TouchableOpacity
-            style={styles.demoButton}
-            onPress={() => {
-              setEmail('vendedor@test.com');
-              setPassword('123456');
-            }}
-          >
-            <Text style={styles.demoButtonText}>Vendedor Demo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.demoButton}
-            onPress={() => {
-              setEmail('comprador@test.com');
-              setPassword('123456');
-            }}
-          >
-            <Text style={styles.demoButtonText}>Comprador Demo</Text>
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>¿No tienes cuenta?</Text>
+          <TouchableOpacity onPress={onSwitchToRegister}>
+            <Text style={styles.registerLink}>Regístrate aquí</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -206,7 +152,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
-  scrollContent: {
+  scrollContainer: {
     flexGrow: 1,
     padding: 24,
     justifyContent: 'center',
@@ -214,6 +160,16 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 40,
+  },
+  logoContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 30,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   title: {
     fontSize: 28,
@@ -230,6 +186,14 @@ const styles = StyleSheet.create({
   form: {
     marginBottom: 32,
   },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 8,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -237,7 +201,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 4,
-    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -252,6 +215,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingVertical: 16,
     color: '#333',
+  },
+  passwordInput: {
+    flex: 1,
   },
   eyeIcon: {
     padding: 8,
@@ -270,6 +236,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 24,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   loginButtonDisabled: {
     opacity: 0.7,
@@ -278,58 +246,19 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
-  divider: {
-    flexDirection: 'row',
+  footer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginTop: 16,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#ddd',
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    color: '#666',
+  footerText: {
     fontSize: 14,
+    color: '#666',
   },
   registerLink: {
-    alignItems: 'center',
-  },
-  registerText: {
     fontSize: 16,
-    color: '#666',
-  },
-  registerTextBold: {
     color: '#8B4513',
     fontWeight: 'bold',
-  },
-  demoSection: {
-    backgroundColor: 'white',
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  demoTitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  demoButton: {
-    backgroundColor: '#f0f0f0',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  demoButtonText: {
-    color: '#8B4513',
-    fontWeight: '500',
   },
 });

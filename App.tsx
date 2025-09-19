@@ -10,6 +10,8 @@ import AlpasoApiService from './services/AlpasoApiService';
 import LoginScreen from './components/LoginScreen';
 import RegisterScreen from './components/RegisterScreen';
 import UserProfileScreen from './components/UserProfileScreen';
+import SellerDashboard from './components/SellerDashboard';
+import NewStreamModal from './components/NewStreamModal';
 
 // Screens Components
 function HomeScreen() {
@@ -106,53 +108,64 @@ function LiveScreen() {
     loadStreams();
   };
 
-  const renderStreamItem = ({ item }: { item: any }) => (
+  const renderStreamItem = ({ item }) => (
     <TouchableOpacity style={styles.streamCard}>
       <View style={styles.streamHeader}>
         <View style={styles.liveIndicator}>
           <Text style={styles.liveText}>EN VIVO</Text>
         </View>
-        <Text style={styles.viewerCount}>{item.currentParticipants} espectadores</Text>
+        <Text style={styles.viewerCount}>{item.currentParticipants || 0} viewers</Text>
       </View>
       <Text style={styles.streamTitle}>{item.title}</Text>
-      <Text style={styles.streamDescription}>{item.description}</Text>
-      <Text style={styles.streamSeller}>Por: {item.sellerName}</Text>
+      <Text style={styles.streamSeller}>por {item.sellerName}</Text>
+      <Text style={styles.streamDescription} numberOfLines={2}>
+        {item.description}
+      </Text>
+      <View style={styles.streamFooter}>
+        <View style={styles.streamTags}>
+          {item.tags?.slice(0, 2).map((tag, index) => (
+            <View key={index} style={styles.tag}>
+              <Text style={styles.tagText}>#{tag}</Text>
+            </View>
+          ))}
+        </View>
+        <TouchableOpacity style={styles.joinButton}>
+          <Ionicons name="play" size={16} color="white" />
+          <Text style={styles.joinButtonText}>Unirse</Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centerContent}>
-          <Text>Cargando transmisiones...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
-      {streams.length > 0 ? (
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>🔴 Transmisiones en Vivo</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+          <Ionicons name="refresh" size={24} color="#8B4513" />
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Text>Cargando transmisiones...</Text>
+        </View>
+      ) : (
         <FlatList
           data={streams}
           renderItem={renderStreamItem}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item) => item._id || item.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={styles.streamsList}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="videocam-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>No hay transmisiones en vivo ahora</Text>
+              <Text style={styles.emptySubtext}>¡Vuelve más tarde para ver contenido increíble!</Text>
+            </View>
           }
         />
-      ) : (
-        <View style={styles.centerContent}>
-          <Ionicons name="videocam-outline" size={64} color="#8B4513" />
-          <Text style={styles.sectionTitle}>No hay transmisiones activas</Text>
-          <Text style={styles.sectionDescription}>
-            Las transmisiones en vivo aparecerán aquí cuando estén disponibles
-          </Text>
-          <TouchableOpacity style={styles.actionButton} onPress={onRefresh}>
-            <Text style={styles.actionButtonText}>Actualizar</Text>
-          </TouchableOpacity>
-        </View>
       )}
     </SafeAreaView>
   );
@@ -185,71 +198,75 @@ function CatalogScreen() {
     loadProducts();
   };
 
-  const addToCart = async (productId: string) => {
-    try {
-      await AlpasoApiService.addToCart(productId);
-      Alert.alert('Éxito', 'Producto agregado al carrito');
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo agregar al carrito');
-    }
-  };
-
-  const renderProductItem = ({ item }: { item: any }) => (
-    <View style={styles.productCard}>
-      <Text style={styles.productName}>{item.name}</Text>
-      <Text style={styles.productPrice}>${item.price}</Text>
-      <Text style={styles.productDescription}>{item.description}</Text>
-      <TouchableOpacity
-        style={styles.addToCartButton}
-        onPress={() => addToCart(item._id)}
-      >
-        <Text style={styles.addToCartText}>Agregar al Carrito</Text>
-      </TouchableOpacity>
-    </View>
+  const renderProductItem = ({ item }) => (
+    <TouchableOpacity style={styles.productCard}>
+      <View style={styles.productImage}>
+        <Ionicons name="cafe" size={40} color="#8B4513" />
+      </View>
+      <View style={styles.productInfo}>
+        <Text style={styles.productName}>{item.name}</Text>
+        <Text style={styles.productPrice}>${item.price}</Text>
+        <Text style={styles.productDescription} numberOfLines={2}>
+          {item.description || 'Producto de alta calidad'}
+        </Text>
+        <TouchableOpacity style={styles.addToCartButton}>
+          <Ionicons name="cart" size={16} color="white" />
+          <Text style={styles.addToCartText}>Agregar al Carrito</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
   );
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centerContent}>
-          <Text>Cargando productos...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
-      {products.length > 0 ? (
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>☕ Catálogo de Productos</Text>
+        <TouchableOpacity style={styles.cartButton}>
+          <Ionicons name="cart" size={24} color="#8B4513" />
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Text>Cargando productos...</Text>
+        </View>
+      ) : (
         <FlatList
           data={products}
           renderItem={renderProductItem}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item) => item._id || item.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={styles.productsList}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          numColumns={2}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="cafe-outline" size={64} color="#ccc" />
+              <Text style={styles.emptyText}>No hay productos disponibles</Text>
+              <Text style={styles.emptySubtext}>¡Próximamente tendremos café increíble!</Text>
+            </View>
           }
         />
-      ) : (
-        <View style={styles.centerContent}>
-          <Ionicons name="storefront-outline" size={64} color="#8B4513" />
-          <Text style={styles.sectionTitle}>Catálogo no disponible</Text>
-          <Text style={styles.sectionDescription}>
-            Los productos aparecerán aquí cuando estén disponibles
-          </Text>
-          <TouchableOpacity style={styles.actionButton} onPress={onRefresh}>
-            <Text style={styles.actionButtonText}>Actualizar</Text>
-          </TouchableOpacity>
-        </View>
       )}
     </SafeAreaView>
   );
 }
 
-function ProfileScreen() {
+// Auth Context para manejar el estado de autenticación
+const AuthContext = React.createContext({
+  user: null,
+  login: () => {},
+  logout: () => {},
+  isAuthenticated: false,
+});
+
+// Hook para usar el contexto de autenticación - EXPORTADO
+export function useAuth() {
+  return React.useContext(AuthContext);
+}
+
+function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authScreen, setAuthScreen] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -258,142 +275,205 @@ function ProfileScreen() {
 
   const checkAuthStatus = async () => {
     try {
-      const authenticated = AlpasoApiService.isAuthenticated();
-      setIsAuthenticated(authenticated);
-
-      if (authenticated) {
-        const userData = await AlpasoApiService.getUserProfile();
-        setUser(userData);
+      const isAuth = await AlpasoApiService.isAuthenticated();
+      if (isAuth) {
+        const profile = await AlpasoApiService.getUserProfile();
+        setUser(profile.user);
       }
     } catch (error) {
-      console.error('Error checking auth status:', error);
-      setIsAuthenticated(false);
-      setUser(null);
+      console.log('No authenticated user');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLoginSuccess = (userData: any) => {
-    setUser(userData);
-    setIsAuthenticated(true);
+  const login = async (email, password) => {
+    try {
+      const response = await AlpasoApiService.login(email, password);
+      if (response.user) {
+        setUser(response.user);
+        return true;
+      }
+    } catch (error) {
+      throw error;
+    }
+    return false;
   };
 
-  const handleRegisterSuccess = (userData: any) => {
-    setUser(userData);
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = () => {
+  const logout = async () => {
+    await AlpasoApiService.logout();
     setUser(null);
-    setIsAuthenticated(false);
-    setAuthScreen('login');
-  };
-
-  const handleUserUpdate = (updatedUser: any) => {
-    setUser(updatedUser);
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centerContent}>
-          <Text>Cargando...</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.loadingContainer}>
+        <Text>Cargando...</Text>
+      </View>
     );
   }
 
-  // If user is authenticated, show profile screen
-  if (isAuthenticated && user) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <UserProfileScreen
-          user={user}
-          onLogout={handleLogout}
-          onUserUpdate={handleUserUpdate}
-        />
-      </SafeAreaView>
-    );
-  }
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        isAuthenticated: !!user,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
-  // If not authenticated, show login or register screen
+
+// Componente de perfil mejorado
+function ProfileScreen() {
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro de que quieres cerrar sesión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cerrar Sesión', onPress: logout },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      {authScreen === 'login' ? (
-        <LoginScreen
-          onLoginSuccess={handleLoginSuccess}
-          onSwitchToRegister={() => setAuthScreen('register')}
-        />
-      ) : (
-        <RegisterScreen
-          onRegisterSuccess={handleRegisterSuccess}
-          onSwitchToLogin={() => setAuthScreen('login')}
-        />
-      )}
+      <ScrollView contentContainerStyle={styles.profileContent}>
+        <View style={styles.profileHeader}>
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={40} color="#8B4513" />
+          </View>
+          <Text style={styles.userName}>{user?.name || 'Usuario'}</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
+          <View style={styles.userTypeBadge}>
+            <Text style={styles.userTypeText}>
+              {user?.userType === 'seller' ? '👨‍💼 Vendedor' : '🛍️ Comprador'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.profileOptions}>
+          <TouchableOpacity style={styles.profileOption}>
+            <Ionicons name="person-circle" size={24} color="#8B4513" />
+            <Text style={styles.profileOptionText}>Editar Perfil</Text>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.profileOption}>
+            <Ionicons name="bag" size={24} color="#8B4513" />
+            <Text style={styles.profileOptionText}>Mis Pedidos</Text>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.profileOption}>
+            <Ionicons name="heart" size={24} color="#8B4513" />
+            <Text style={styles.profileOptionText}>Favoritos</Text>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.profileOption}>
+            <Ionicons name="settings" size={24} color="#8B4513" />
+            <Text style={styles.profileOptionText}>Configuración</Text>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.profileOption}>
+            <Ionicons name="help-circle" size={24} color="#8B4513" />
+            <Text style={styles.profileOptionText}>Ayuda y Soporte</Text>
+            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.profileOption, styles.logoutOption]} onPress={handleLogout}>
+            <Ionicons name="log-out" size={24} color="#f44336" />
+            <Text style={[styles.profileOptionText, styles.logoutText]}>Cerrar Sesión</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-// Navigation Setup
+// Navegador principal
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-function TabNavigator() {
+function MainTabs() {
+  const { user } = useAuth();
+  const isSeller = user?.userType === 'seller' || user?.role === 'instructor';
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName: keyof typeof Ionicons.glyphMap;
+          let iconName;
 
-          if (route.name === 'Inicio') {
+          if (route.name === 'Home') {
             iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'En Vivo') {
+          } else if (route.name === 'Live') {
             iconName = focused ? 'videocam' : 'videocam-outline';
-          } else if (route.name === 'Catálogo') {
-            iconName = focused ? 'storefront' : 'storefront-outline';
-          } else if (route.name === 'Perfil') {
+          } else if (route.name === 'Catalog') {
+            iconName = focused ? 'grid' : 'grid-outline';
+          } else if (route.name === 'SellerDashboard') {
+            iconName = focused ? 'analytics' : 'analytics-outline';
+          } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
-          } else {
-            iconName = 'home-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#8B4513',
         tabBarInactiveTintColor: 'gray',
-        headerStyle: {
-          backgroundColor: '#8B4513',
-        },
-        headerTintColor: 'white',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
+        headerShown: false,
       })}
     >
-      <Tab.Screen name="Inicio" component={HomeScreen} />
-      <Tab.Screen name="En Vivo" component={LiveScreen} />
-      <Tab.Screen name="Catálogo" component={CatalogScreen} />
-      <Tab.Screen name="Perfil" component={ProfileScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Inicio' }} />
+      <Tab.Screen name="Live" component={LiveScreen} options={{ title: 'En Vivo' }} />
+      <Tab.Screen name="Catalog" component={CatalogScreen} options={{ title: 'Catálogo' }} />
+      {isSeller && (
+        <Tab.Screen
+          name="SellerDashboard"
+          component={SellerDashboard}
+          options={{ title: 'Dashboard' }}
+        />
+      )}
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: 'Perfil' }} />
     </Tab.Navigator>
+  );
+}
+
+function AuthStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+    </Stack.Navigator>
   );
 }
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator>
-          <Stack.Screen
-            name="Main"
-            component={TabNavigator}
-            options={{ headerShown: false }}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
-      <StatusBar style="auto" />
+      <AuthProvider>
+        <NavigationContainer>
+          <AuthNavigator />
+        </NavigationContainer>
+        <StatusBar style="auto" />
+      </AuthProvider>
     </SafeAreaProvider>
   );
+}
+
+function AuthNavigator() {
+  const { isAuthenticated } = useAuth();
+
+  return isAuthenticated ? <MainTabs /> : <AuthStack />;
 }
 
 const styles = StyleSheet.create({
@@ -582,6 +662,40 @@ const styles = StyleSheet.create({
     color: '#8B4513',
     fontWeight: '500',
   },
+  streamFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  streamTags: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  tag: {
+    backgroundColor: '#e0e0e0',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  tagText: {
+    fontSize: 12,
+    color: '#333',
+  },
+  joinButton: {
+    backgroundColor: '#8B4513',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  joinButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
   // Product styles
   productsList: {
     padding: 16,
@@ -596,6 +710,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  productImage: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 12,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  productInfo: {
+    flex: 1,
   },
   productName: {
     fontSize: 18,
@@ -623,5 +749,115 @@ const styles = StyleSheet.create({
   addToCartText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  // Profile styles
+  profileHeader: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#8B4513',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  userName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
+  userTypeBadge: {
+    backgroundColor: '#e0f7fa',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    marginBottom: 24,
+  },
+  userTypeText: {
+    fontSize: 14,
+    color: '#00796b',
+    fontWeight: '500',
+  },
+  profileOptions: {
+    width: '100%',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingTop: 16,
+  },
+  profileOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  profileOptionText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  logoutOption: {
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    marginTop: 16,
+  },
+  logoutText: {
+    color: '#f44336',
+  },
+  // Loading and Empty states
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    fontSize: 18,
+    color: '#333',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  // Header styles
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#8B4513',
+  },
+  refreshButton: {
+    padding: 8,
+  },
+  cartButton: {
+    padding: 8,
   },
 });
