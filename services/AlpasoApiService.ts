@@ -60,6 +60,46 @@ class AlpasoApiService {
     }
   }
 
+  // Método genérico para obtener streams con filtros (requerido por LiveScreen)
+  async getStreams(params: {
+    status?: 'live' | 'scheduled' | 'ended';
+    page?: number;
+    limit?: number;
+  } = {}) {
+    try {
+      const { status, page = 1, limit = 20 } = params;
+
+      let url = `${API_BASE_URL}/api/streams`;
+      const queryParams = new URLSearchParams();
+
+      if (status) {
+        queryParams.append('status', status);
+      }
+      if (page) {
+        queryParams.append('page', page.toString());
+      }
+      if (limit) {
+        queryParams.append('limit', limit.toString());
+      }
+
+      if (queryParams.toString()) {
+        url += `?${queryParams.toString()}`;
+      }
+
+      console.log('📡 [API] Fetching streams from:', url);
+
+      const response = await axios.get(url, {
+        headers: this.getHeaders(),
+      });
+
+      console.log('✅ [API] Streams response received:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [API] Error fetching streams:', error);
+      throw error;
+    }
+  }
+
   async getStreamById(streamId: string) {
     try {
       const response = await axios.get(`${API_BASE_URL}/api/streams/${streamId}`, {
@@ -70,6 +110,12 @@ class AlpasoApiService {
       console.error('Error fetching stream:', error);
       throw error;
     }
+  }
+
+  // Alias para compatibilidad - método requerido por LiveStreamScreen
+  async getStream(streamId: string) {
+    console.log('🔍 [API] Getting stream data for ID:', streamId);
+    return this.getStreamById(streamId);
   }
 
   async createStream(streamData: {
@@ -422,7 +468,7 @@ class AlpasoApiService {
     return !!this.token;
   }
 
-  // Method to get current user role
+  // Method to get user role
   async getUserRole(): Promise<string | null> {
     try {
       const profile = await this.getUserProfile();

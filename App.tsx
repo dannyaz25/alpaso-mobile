@@ -12,6 +12,9 @@ import RegisterScreen from './components/RegisterScreen';
 import UserProfileScreen from './components/UserProfileScreen';
 import SellerDashboard from './components/SellerDashboard';
 import NewStreamModal from './components/NewStreamModal';
+import LiveScreen from './components/LiveScreen';
+import LiveStreamScreen from './components/LiveStreamScreen';
+import StreamingVideoPlayer from './components/StreamingVideoPlayer';
 
 // Screens Components
 function HomeScreen() {
@@ -81,95 +84,6 @@ function HomeScreen() {
   );
 }
 
-function LiveScreen() {
-  const [streams, setStreams] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const loadStreams = async () => {
-    try {
-      const data = await AlpasoApiService.getLiveStreams();
-      setStreams(data.streams || []);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar las transmisiones en vivo');
-      console.error('Error loading streams:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadStreams();
-  }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadStreams();
-  };
-
-  const renderStreamItem = ({ item }) => (
-    <TouchableOpacity style={styles.streamCard}>
-      <View style={styles.streamHeader}>
-        <View style={styles.liveIndicator}>
-          <Text style={styles.liveText}>EN VIVO</Text>
-        </View>
-        <Text style={styles.viewerCount}>{item.currentParticipants || 0} viewers</Text>
-      </View>
-      <Text style={styles.streamTitle}>{item.title}</Text>
-      <Text style={styles.streamSeller}>por {item.sellerName}</Text>
-      <Text style={styles.streamDescription} numberOfLines={2}>
-        {item.description}
-      </Text>
-      <View style={styles.streamFooter}>
-        <View style={styles.streamTags}>
-          {item.tags?.slice(0, 2).map((tag, index) => (
-            <View key={index} style={styles.tag}>
-              <Text style={styles.tagText}>#{tag}</Text>
-            </View>
-          ))}
-        </View>
-        <TouchableOpacity style={styles.joinButton}>
-          <Ionicons name="play" size={16} color="white" />
-          <Text style={styles.joinButtonText}>Unirse</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
-
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>🔴 Transmisiones en Vivo</Text>
-        <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-          <Ionicons name="refresh" size={24} color="#8B4513" />
-        </TouchableOpacity>
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <Text>Cargando transmisiones...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={streams}
-          renderItem={renderStreamItem}
-          keyExtractor={(item) => item._id || item.id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={styles.streamsList}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="videocam-outline" size={64} color="#ccc" />
-              <Text style={styles.emptyText}>No hay transmisiones en vivo ahora</Text>
-              <Text style={styles.emptySubtext}>¡Vuelve más tarde para ver contenido increíble!</Text>
-            </View>
-          }
-        />
-      )}
-    </SafeAreaView>
-  );
-}
 
 function CatalogScreen() {
   const [products, setProducts] = useState([]);
@@ -404,6 +318,17 @@ function ProfileScreen() {
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
+// Stack Navigator para las pantallas de streaming
+function StreamStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="LiveList" component={LiveScreen} />
+      <Stack.Screen name="LiveStreamScreen" component={LiveStreamScreen} />
+      <Stack.Screen name="StreamPlayer" component={LiveStreamScreen} />
+    </Stack.Navigator>
+  );
+}
+
 function MainTabs() {
   const { user } = useAuth();
   const isSeller = user?.userType === 'seller' || user?.role === 'instructor';
@@ -434,7 +359,7 @@ function MainTabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Inicio' }} />
-      <Tab.Screen name="Live" component={LiveScreen} options={{ title: 'En Vivo' }} />
+      <Tab.Screen name="Live" component={StreamStack} options={{ title: 'En Vivo' }} />
       <Tab.Screen name="Catalog" component={CatalogScreen} options={{ title: 'Catálogo' }} />
       {isSeller && (
         <Tab.Screen

@@ -75,7 +75,7 @@ const STREAM_CATEGORIES = [
   { id: 'roasting-bean-selection', label: 'Roasting & Bean Selection' },
 ];
 
-const SellerDashboard: React.FC = () => {
+const SellerDashboard: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [streams, setStreams] = useState<StreamMetrics[]>([]);
   const [products, setProducts] = useState<SellerProduct[]>([]);
@@ -91,7 +91,7 @@ const SellerDashboard: React.FC = () => {
     description: '',
     category: 'espresso-latte-art',
     scheduledTime: '',
-    maxParticipants: 100,
+    maxParticipants: 10, // Cambiado de 100 a 10
     isImmediate: true,
     selectedProducts: [],
   });
@@ -207,20 +207,111 @@ const SellerDashboard: React.FC = () => {
   };
 
   const handleCreateStreamSubmit = async () => {
+    if (!newStreamData.title.trim()) {
+      Alert.alert('Error', 'El título es obligatorio');
+      return;
+    }
+
+    // Validar descripción si está presente
+    if (newStreamData.description.trim() && newStreamData.description.trim().length < 10) {
+      Alert.alert('Error', 'La descripción debe tener al menos 10 caracteres');
+      return;
+    }
+
     setCreatingStream(true);
     try {
-      // Aquí llamarías a tu servicio API para crear la transmisión
-      // await AlpasoApiService.createStream(newStreamData);
+      console.log('🚀 [CREATE STREAM] Creando transmisión:', newStreamData);
 
-      // Simulación de espera
-      setTimeout(() => {
-        setShowNewStreamModal(false);
-        Alert.alert('Éxito', 'Transmisión creada exitosamente');
-        loadDashboardData();
-      }, 2000);
-    } catch (error) {
-      console.error('Error creating stream:', error);
-      Alert.alert('Error', 'No se pudo crear la transmisión');
+      // Preparar descripción: si está vacía, usar una descripción por defecto
+      const description = newStreamData.description.trim() ||
+        `Transmisión en vivo de ${newStreamData.title}. Únete para descubrir técnicas de café y productos premium.`;
+
+      // Llamada real al API
+      const streamPayload = {
+        title: newStreamData.title,
+        description: newStreamData.title,
+        category: newStreamData.category,
+        scheduledTime: newStreamData.isImmediate ? null : newStreamData.scheduledTime,
+        maxParticipants: newStreamData.maxParticipants,
+        products: newStreamData.selectedProducts,
+      };
+
+      console.log('📤 [CREATE STREAM] Payload enviado:', streamPayload);
+
+      const response = await AlpasoApiService.createStream(streamPayload);
+
+      console.log('✅ [CREATE STREAM] Transmisión creada:', response);
+
+      // Cerrar modal
+      setShowNewStreamModal(false);
+
+      // Resetear formulario
+      setNewStreamData({
+        title: '',
+        description: '',
+        category: 'espresso-latte-art',
+        scheduledTime: '',
+        maxParticipants: 10, // Cambiado de 100 a 10
+        isImmediate: true,
+        selectedProducts: [],
+      });
+
+      // Mostrar mensaje de éxito y navegar
+      Alert.alert(
+        'Éxito',
+        'Transmisión creada exitosamente. ¿Deseas ir en vivo ahora?',
+        [
+          {
+            text: 'Más tarde',
+            style: 'cancel',
+            onPress: () => {
+              // Solo recargar datos
+              loadDashboardData();
+            }
+          },
+          {
+            text: 'Ir en Vivo',
+            onPress: () => {
+              // Navegar a la pantalla de transmisión en vivo
+              const streamId = response.stream?._id || response.stream?.id || response.id;
+
+              if (navigation && streamId) {
+                console.log('📱 [NAVIGATION] Navegando a LiveStreamScreen con ID:', streamId);
+                // Navegar al tab Live y luego a la pantalla específica
+                navigation.navigate('Live', {
+                  screen: 'LiveStreamScreen',
+                  params: {
+                    streamId: streamId,
+                    isHost: true
+                  }
+                });
+              } else {
+                console.warn('⚠️ [NAVIGATION] Navigation o stream ID no disponible. Response:', response);
+                console.warn('⚠️ [NAVIGATION] Navigation object:', !!navigation);
+                console.warn('⚠️ [NAVIGATION] Stream data:', response.stream);
+                Alert.alert('Info', 'Transmisión creada. Ve a "Mis Transmisiones" para gestionarla.');
+              }
+            }
+          }
+        ]
+      );
+
+    } catch (error: any) {
+      console.error('❌ [CREATE STREAM] Error:', error);
+      console.error('❌ [CREATE STREAM] Error response:', error.response?.data);
+
+      let errorMessage = 'No se pudo crear la transmisión';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        // Manejar errores de validación específicos
+        const validationErrors = error.response.data.errors.map((err: any) => err.msg).join(', ');
+        errorMessage = `Error de validación: ${validationErrors}`;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert('Error', errorMessage);
     } finally {
       setCreatingStream(false);
     }
